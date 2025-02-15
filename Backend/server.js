@@ -15,8 +15,9 @@ const sendEmail = require("./emailServices");
 const QRCode = require('qrcode');
 const cors = require('cors');
 const crypto = require('crypto');
+const mongoose = require('mongoose'); 
 
-const coords = { latitude: 20.2961, longitude: 85.8245 };
+const coords = { latitude: 20.1493, longitude: 85.6704 };
 
 app.use(cors({
     origin: "http://localhost:5173",
@@ -410,23 +411,24 @@ app.get('/activeSessions', authentication, async (req, res) => {
         });
     }
 });
-// Mark attendance
+
+// Update the markAttendance route
 app.post('/markAttendance', authentication, async (req, res) => {
     try {
         const { sessionId } = req.body;
         const studentId = req.user.studentId;
 
-        // Validate session exists and is active
+        // Validate session exists and convert sessionId to ObjectId
         const session = await AttendanceSession.findById(sessionId);
         if (!session || !session.active) {
             return res.status(400).json({ msg: "Invalid attendance session" });
         }
 
-        // Update student's attendance
+        // Store sessionId as ObjectId
         await User.findOneAndUpdate(
             { studentId },
             { $addToSet: { attendance: { 
-                sessionId,
+                sessionId: session._id, // Store as ObjectId
                 subject: session.subject,
                 timestamp: new Date()
             }}}
@@ -434,11 +436,7 @@ app.post('/markAttendance', authentication, async (req, res) => {
 
         res.status(200).json({ msg: "Attendance marked successfully" });
     } catch (error) {
-        console.error("Error:", error);
-        res.status(500).json({ 
-            msg: "Failed to mark attendance",
-            error: error.message 
-        });
+        // ... error handling ...
     }
 });
 
@@ -466,14 +464,38 @@ app.post('/startAttendance', teacherAuth, async (req, res) => {
 });
 
 // Stop attendance session
-app.post('/stopAttendance/:sessionId', teacherAuth, async (req, res) => {
+app.get('/attendance/:sessionId', teacherAuth, async (req, res) => {
     try {
         const { sessionId } = req.params;
-        await AttendanceSession.findByIdAndUpdate(sessionId, { active: false });
-        res.status(200).json({ msg: "Session stopped successfully" });
+        
+        // Validate session ID format
+        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+            return res.status(400).json({ msg: "Invalid session ID format" });
+        }
+
+        const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
+
+        const students = await User.find(
+            { 'attendance.sessionId': sessionObjectId },
+            'studentId username attendance.$'
+        ).lean();
+
+        const attendanceDetails = students.map(student => ({
+            studentId: student.studentId,
+            username: student.username,
+            timestamp: student.attendance[0]?.timestamp // Using [0] since we used $ projection
+        }));
+
+        res.status(200).json({
+            total: attendanceDetails.length,
+            attendees: attendanceDetails
+        });
     } catch (error) {
         console.error("Error:", error);
-        res.status(500).json({ msg: "Internal server error" });
+        res.status(500).json({ 
+            msg: "Internal server error",
+            error: error.message 
+        });
     }
 });
 
@@ -506,11 +528,12 @@ app.get('/teacherActiveSessions', teacherAuth, async (req, res) => {
 app.get('/attendance/:sessionId', teacherAuth, async (req, res) => {
     try {
         const { sessionId } = req.params;
+        const sessionObjectId = new mongoose.Types.ObjectId(sessionId); 
         
         // Query using existing schema structure
         const students = await User.find(
-            { 'attendance.sessionId': sessionId },
-            'studentId username attendance.$' // Projection to get only relevant data
+            { 'attendance.sessionId': sessionObjectId }, // Query using ObjectId
+            'studentId username attendance.$'
         );
 
         const attendanceDetails = students.map(student => ({
@@ -526,6 +549,31 @@ app.get('/attendance/:sessionId', teacherAuth, async (req, res) => {
     } catch (error) {
         console.error("Error:", error);
         res.status(500).json({ msg: "Internal server error" });
+    }
+});
+
+// Stop attendance session
+app.post('/stopAttendance/:sessionId', teacherAuth, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        
+        const session = await AttendanceSession.findByIdAndUpdate(
+            sessionId,
+            { active: false },
+            { new: true }
+        );
+
+        if (!session) {
+            return res.status(404).json({ msg: "Session not found" });
+        }
+
+        res.status(200).json({ msg: "Session stopped successfully" });
+    } catch (error) {
+        console.error("Error stopping session:", error);
+        res.status(500).json({ 
+            msg: "Internal server error",
+            error: error.message 
+        });
     }
 });
 

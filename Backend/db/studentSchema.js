@@ -17,7 +17,7 @@ const userSchema = new mongoose.Schema({
     },
     attendance: [
         {
-            sessionId: { type: String },
+            sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'AttendanceSession' },
             subject: { type: String },
             timestamp: { type: Date, default: Date.now }
         }

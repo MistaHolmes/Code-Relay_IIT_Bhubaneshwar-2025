@@ -2,11 +2,27 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371e3; // Earth radius in meters
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
+
 export function Attendance() {
     const navigate = useNavigate();
     const [activeSessions, setActiveSessions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [checkingLocation, setCheckingLocation] = useState(false); // New state
+    const [locationError, setLocationError] = useState<string | null>(null); // New state
     const token = localStorage.getItem("token");
     const studentId = localStorage.getItem("studentId");
 
@@ -57,7 +73,38 @@ export function Attendance() {
     const handleMarkAttendance = async (sessionId: string) => {
         if (!token || !studentId) return;
 
+        setCheckingLocation(true);
+        setLocationError(null);
+
         try {
+            // Get student's location
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    timeout: 5000,
+                });
+            });
+
+            // Hardcoded allowed coordinates (from server.js)
+            const allowedCoords = {
+                latitude: 20.1493,
+                longitude: 85.6704,
+            };
+            
+            // Calculate distance
+            const distance = getDistance(
+                position.coords.latitude,
+                position.coords.longitude,
+                allowedCoords.latitude,
+                allowedCoords.longitude
+            );
+
+            // Check if within 100 meters radius
+            // if (distance > 1000) {
+            //     setLocationError("You must be within campus premises to mark attendance.");
+            //     return;
+            // }
+
+            // Proceed to mark attendance
             const response = await fetch("http://localhost:3000/markAttendance", {
                 method: "POST",
                 headers: {
@@ -76,7 +123,13 @@ export function Attendance() {
             setActiveSessions(prev => prev.filter(s => s._id !== sessionId));
         } catch (error) {
             console.error("Error marking attendance:", error);
-            alert(error instanceof Error ? error.message : "Failed to mark attendance");
+            if (error instanceof GeolocationPositionError) {
+                setLocationError("Location access denied or timed out. Enable permissions.");
+            } else {
+                alert(error instanceof Error ? error.message : "Failed to mark attendance");
+            }
+        } finally {
+            setCheckingLocation(false);
         }
     };
 
@@ -117,6 +170,17 @@ export function Attendance() {
                                     {new Date(session.createdAt).toLocaleTimeString()}
                                 </span>
                             </div>
+
+
+                            {checkingLocation && (
+                <p className="text-center text-gray-400 mb-4 animate-pulse">
+                    Checking your location...
+                </p>
+            )}
+            {locationError && (
+                <p className="text-center text-red-500 mb-4">{locationError}</p>
+            )}
+
 
                             <button
                                 onClick={() => handleMarkAttendance(session._id)}
