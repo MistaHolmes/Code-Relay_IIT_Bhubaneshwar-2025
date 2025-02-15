@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import Attendoo from "../../assist/reshot-icon-lastfm-NVQ647DYCA.svg";
 import { Link } from "react-router-dom";
 
+
 const Home = () => {
   const [expanded, setExpanded] = useState(false);
 
@@ -133,7 +134,22 @@ const Home = () => {
                     </span>
                   </Link>
                 </div>
+
+                <div className="group relative">
+  <div className="absolute -inset-0.5 bg-gradient-to-r from-gray-600 to-gray-500 rounded-full blur opacity-1 group-hover:opacity-75 transition-all duration-400"></div>
+  <Link
+    to="/adminLogin"
+    className="relative flex items-center px-6 py-3 bg-gray-900 rounded-full leading-none transition-all duration-200 group-hover:bg-gray-800"
+  >
+    <span className="text-sm font-medium bg-gradient-to-r from-gray-400 to-gray-300 bg-clip-text text-transparent">
+      💼 Admin Access
+    </span>
+  </Link>
+</div>
+
               </div>
+
+              
 
               <div className="inline-flex items-center pt-6 mt-8 border-t border-gray-800 sm:pt-10 sm:mt-14">
                 <div className="animate-pulse">

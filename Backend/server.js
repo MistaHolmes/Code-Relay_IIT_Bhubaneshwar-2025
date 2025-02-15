@@ -594,13 +594,12 @@ app.post('/stopAttendance/:sessionId', teacherAuth, async (req, res) => {
 
 
 //faceapi 
-const HARDCODED_EMBEDDING = [0.1, 0.2, 0.3, 0.4]; // Must match frontend array
+const HARDCODED_EMBEDDING = [0.1, 0.2, 0.3, 0.4]; 
 
 app.post('/verifyFace', (req, res) => {
     try {
         const receivedArray = req.body.embedding;
         
-        // Simple array comparison (not production-safe!)
         const verified = JSON.stringify(receivedArray) === JSON.stringify(HARDCODED_EMBEDDING);
         
         res.json({
@@ -692,6 +691,51 @@ app.delete('/poll/:pollId', teacherAuth, async (req, res) => {
         });
     }
 });
+
+
+// Get all students
+app.get('/allStudents', async (req, res) => {
+    try {
+      const students = await User.find();
+      res.json(students);
+    } catch (error) {
+      res.status(500).json({ msg: "Failed to fetch students", error: error.message });
+    }
+  });
+  
+  // Get all teachers
+  app.get('/allTeachers', async (req, res) => {
+    try {
+      const teachers = await Teacher.find();
+      res.json(teachers);
+    } catch (error) {
+      res.status(500).json({ msg: "Failed to fetch teachers", error: error.message });
+    }
+  });
+  
+  // Delete student
+  app.delete('/deleteStudent/:studentId', teacherAuth, async (req, res) => {
+    try {
+      const { studentId } = req.params;
+      const deletedStudent = await User.findOneAndDelete({ studentId });
+      if (!deletedStudent) return res.status(404).json({ msg: "Student not found" });
+      res.json({ msg: "Student deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ msg: "Failed to delete student", error: error.message });
+    }
+  });
+  
+  // Delete teacher
+  app.delete('/deleteTeacher/:teacherId', teacherAuth, async (req, res) => {
+    try {
+      const { teacherId } = req.params;
+      const deletedTeacher = await Teacher.findOneAndDelete({ teacherId });
+      if (!deletedTeacher) return res.status(404).json({ msg: "Teacher not found" });
+      res.json({ msg: "Teacher deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ msg: "Failed to delete teacher", error: error.message });
+    }
+  });
 
 
 
