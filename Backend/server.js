@@ -639,6 +639,62 @@ app.post('/api/ask', (req, res) => {
 });
 
 
+
+
+// Get Poll Results (Professor)
+app.get('/poll/:pollId', teacherAuth, async (req, res) => {
+    try {
+        const poll = await Poll.findById(req.params.pollId);
+        if (!poll) {
+            return res.status(404).json({ msg: "Poll not found" });
+        }
+        
+        // Calculate total votes
+        const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0);
+        
+        res.json({
+            ...poll.toObject(),
+            totalVotes
+        });
+    } catch (error) {
+        console.error("Poll fetch error:", error);
+        res.status(500).json({ msg: "Failed to fetch poll", error: error.message });
+    }
+});
+
+// Get All Polls (Professor)
+app.get('/all-polls', teacherAuth, async (req, res) => {
+    try {
+        const polls = await Poll.find().sort({ createdAt: -1 });
+        res.json(polls);
+    } catch (error) {
+        console.error("Error fetching polls:", error);
+        res.status(500).json({ msg: "Failed to fetch polls", error: error.message });
+    }
+});
+
+// Delete Poll
+app.delete('/poll/:pollId', teacherAuth, async (req, res) => {
+    try {
+        const { pollId } = req.params;
+        const deletedPoll = await Poll.findByIdAndDelete(pollId);
+        
+        if (!deletedPoll) {
+            return res.status(404).json({ msg: "Poll not found" });
+        }
+        
+        res.json({ msg: "Poll deleted successfully" });
+    } catch (error) {
+        console.error("Poll deletion error:", error);
+        res.status(500).json({ 
+            msg: "Failed to delete poll",
+            error: error.message 
+        });
+    }
+});
+
+
+
 app.listen(PORT, () => {
     console.log(`Server running on PORT: ${PORT}`);
 });
