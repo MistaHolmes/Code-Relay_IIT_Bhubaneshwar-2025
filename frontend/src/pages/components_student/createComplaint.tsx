@@ -18,20 +18,21 @@ const handleSubmit = async (e: React.FormEvent) => {
           method: "POST",
           headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}` // Correct header format
+              "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify(formData)
       });
 
-      if (response.ok) {
-          navigate("/studentLanding");
-      } else {
-          const errorData = await response.json();
-          alert(errorData.msg || "Failed to submit complaint");
+      const data = await response.json(); // Always parse JSON first
+      
+      if (!response.ok) {
+          throw new Error(data.msg || "Failed to submit complaint");
       }
+
+      navigate("/studentLanding");
   } catch (error) {
       console.error("Error submitting complaint:", error);
-      alert("Failed to submit complaint. Please try again.");
+      alert(error instanceof Error ? error.message : "Failed to submit complaint");
   }
 };
 

@@ -10,6 +10,7 @@ const Poll = require('./db/PollSchema');
 const { getDistance } = require('geolib');
 const Complaint = require('./db/complaintSchema');
 const Teacher = require('./db/teacherSchema')
+const AttendanceSession =require('./db/attendanceSessionSchema')
 const sendEmail = require("./emailServices");
 const QRCode = require('qrcode');
 const cors = require('cors');
@@ -20,7 +21,8 @@ const coords = { latitude: 20.2961, longitude: 85.8245 };
 app.use(cors({
     origin: "http://localhost:5173",
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"]
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Authorization"] 
 }));
 
 const PORT = 3000;
@@ -108,6 +110,7 @@ app.post('/addTeacher', async (req, res) => {
 /*For BackEnd Tests*/
 
 /* Middlewares */
+// server.js - Authentication Middleware
 const authentication = (req, res, next) => {
     const authHeader = req.headers.authorization;
     
@@ -115,18 +118,23 @@ const authentication = (req, res, next) => {
         return res.status(401).json({ msg: "No token provided" });
     }
     
-    const token = authHeader.split(" ")[1];
+    const token = authHeader.split(" ")[1].trim(); // Remove whitespace
     
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) {
-            console.error("JWT Verification Error:", err);
-            return res.status(401).json({ msg: "Invalid or expired token" });
+            return res.status(401).json({ msg: "Invalid/expired token" });
         }
-        req.user = decoded;
+        
+        // Ensure decoded token contains studentId
+        req.user = {
+            studentId: decoded.studentId, // <-- MUST BE PRESENT
+            email: decoded.email,
+            username: decoded.username
+        };
+        
         next();
     });
-};  
-
+};
 const teacherAuth = (req, res, next) => {
     const token = req.header('Authorization');
     if (!token) {
@@ -153,19 +161,20 @@ app.post("/signin", async (req, res) => {
             return res.status(401).json({ msg: "Invalid credentials" });
         }
 
+        // Include studentId in the token payload
         const token = jwt.sign(
             {
-                studentId: existingUser.studentId,
+                studentId: existingUser.studentId, // <-- MUST BE INCLUDED
                 email: existingUser.email,
                 username: existingUser.username
             },
             JWT_SECRET,
-            { expiresIn: '2h' } // Increased expiration time
+            { expiresIn: '2h' }
         );
 
         res.status(200).json({
             msg: "Welcome back!",
-            token: token, // Raw token without Bearer
+            token: token,
             studentId: existingUser.studentId
         });
     } catch (error) {
@@ -186,7 +195,7 @@ app.post('/signin/teacher', async (req, res) => {
 
         const token = jwt.sign({ teacherId: teacher.teacherId }, JWT_SECRET, { expiresIn: "1h" });
         res.json({msg: "Welcome back!", 
-            token: ` ${token}`,
+            token: `${token}`,
             teacherId: teacher.teacherId
         });
     } catch (error) {
@@ -275,14 +284,19 @@ app.get('/attendance', authentication, async (req, res) => {
 /* Community Page */
 // Post Complaint
 // In server.js, modify the postComplaint route to get studentId from the user
+
+///new
 app.post('/postComplaint', authentication, async (req, res) => {
     try {
-        const { subject, faculty, title, description } = req.body;
-        const studentId = req.user.studentId;
-
+        // Validate required fields first
+        const { title, description } = req.body;
         if (!title || !description) {
             return res.status(400).json({ msg: "Title and description are required" });
         }
+
+        // Get optional fields safely
+        const { subject = "", faculty = "" } = req.body;
+        const studentId = req.user.studentId;
 
         const newComplaint = new Complaint({
             studentId,
@@ -291,6 +305,7 @@ app.post('/postComplaint', authentication, async (req, res) => {
             title,
             description,
         });
+
         await newComplaint.save();
         res.status(201).json({ 
             msg: "Complaint posted successfully!",
@@ -298,7 +313,7 @@ app.post('/postComplaint', authentication, async (req, res) => {
         });
     } catch (error) {
         console.error("Error:", error);
-        res.status(500).json({ msg: "Internal server error" });
+        res.status(500).json({ msg: "Internal server error", error: error.message });
     }
 });
 
@@ -372,6 +387,119 @@ app.post("/sendNotificationEmail", teacherAuth, async (req, res) => {
     }
 });
 /* Mail Notification */
+
+///////////////////////////////////////////NEW
+
+// Active attendance sessions
+app.get('/activeSessions', authentication, async (req, res) => {
+    try {
+        const sessions = await AttendanceSession.find({ active: true })
+            .lean()
+            .exec();
+            
+        if (!sessions.length) {
+            return res.status(200).json([]); // Return empty array instead of error
+        }
+        
+        res.status(200).json(sessions);
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            msg: "Server error loading sessions",
+            error: error.message
+        });
+    }
+});
+// Mark attendance
+app.post('/markAttendance', authentication, async (req, res) => {
+    try {
+        const { sessionId } = req.body;
+        const studentId = req.user.studentId;
+
+        // Validate session exists and is active
+        const session = await AttendanceSession.findById(sessionId);
+        if (!session || !session.active) {
+            return res.status(400).json({ msg: "Invalid attendance session" });
+        }
+
+        // Update student's attendance
+        await User.findOneAndUpdate(
+            { studentId },
+            { $addToSet: { attendance: { 
+                sessionId,
+                subject: session.subject,
+                timestamp: new Date()
+            }}}
+        );
+
+        res.status(200).json({ msg: "Attendance marked successfully" });
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ 
+            msg: "Failed to mark attendance",
+            error: error.message 
+        });
+    }
+});
+
+// Start attendance session
+app.post('/startAttendance', teacherAuth, async (req, res) => {
+    try {
+        const { subject, faculty } = req.body;
+        
+        if (!subject || !faculty) {
+            return res.status(400).json({ msg: "Subject and faculty required" });
+        }
+
+        const newSession = new AttendanceSession({
+            subject,
+            faculty,
+            active: true
+        });
+        
+        await newSession.save();
+        res.status(201).json({ msg: "Attendance session started", session: newSession });
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ msg: "Internal server error" });
+    }
+});
+
+// Stop attendance session
+app.post('/stopAttendance/:sessionId', teacherAuth, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        await AttendanceSession.findByIdAndUpdate(sessionId, { active: false });
+        res.status(200).json({ msg: "Session stopped successfully" });
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ msg: "Internal server error" });
+    }
+});
+
+// Get teacher's active sessions
+app.get('/teacherActiveSessions', teacherAuth, async (req, res) => {
+    try {
+        const sessions = await AttendanceSession.find({ active: true })
+            .catch(err => {
+                console.error("Database Error:", err);
+                throw new Error("Database query failed");
+            });
+            
+        if (!sessions) {
+            return res.status(404).json({ msg: "No sessions found" });
+        }
+        
+        res.status(200).json(sessions);
+    } catch (error) {
+        console.error("Server Error:", error);
+        res.status(500).json({ 
+            msg: "Failed to fetch sessions",
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
 
 
 app.listen(PORT, () => {
