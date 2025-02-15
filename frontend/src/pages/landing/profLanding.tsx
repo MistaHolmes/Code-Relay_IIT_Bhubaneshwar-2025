@@ -8,6 +8,15 @@ export function ProfLanding() {
     const [activeSessions, setActiveSessions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [attendanceData, setAttendanceData] = useState<{
+        total: number;
+        attendees: Array<{ studentId: string; username: string; timestamp: string }>;
+    } | null>(null);
+    const [selectedSession, setSelectedSession] = useState<{
+        sessionId: string;
+        subject: string;
+    } | null>(null);
+    
     const token = localStorage.getItem("token");
 
     useEffect(() => {
@@ -93,6 +102,25 @@ export function ProfLanding() {
         }
     };
 
+    const viewAttendance = async (sessionId: string) => {
+        try {
+            const response = await fetch(`http://localhost:3000/attendance/${sessionId}`, {
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.msg || "Failed to fetch attendance");
+            
+            setAttendanceData(data);
+            setSelectedSession(activeSessions.find(s => s._id === sessionId) || null);
+        } catch (error) {
+            console.error("Error:", error);
+            alert(error instanceof Error ? error.message : "Failed to load attendance");
+        }
+    };
+
     if (error) {
         return (
             <div className="p-6 text-center text-white">
@@ -113,6 +141,7 @@ export function ProfLanding() {
                 Professor Dashboard
             </h1>
 
+            {/* Session Creation Section */}
             <div className="flex flex-col sm:flex-row gap-4 mb-8 justify-center items-center">
                 <div className="flex flex-col sm:flex-row gap-4 w-full max-w-2xl">
                     <select 
@@ -146,6 +175,7 @@ export function ProfLanding() {
                 </button>
             </div>
 
+            {/* Active Sessions Section */}
             <h2 className="text-2xl font-normal text-center mb-6 bg-gradient-to-r from-cyan-500 to-purple-500 bg-clip-text text-transparent">
                 Active Attendance Sessions
             </h2>
@@ -174,14 +204,60 @@ export function ProfLanding() {
                                 </span>
                             </div>
 
-                            <button
-                                onClick={() => stopAttendanceSession(session._id)}
-                                className="w-full px-6 py-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white rounded-full transition-all duration-200"
-                            >
-                                End Session
-                            </button>
+                            <div className="flex flex-col gap-2">
+                                <button
+                                    onClick={() => viewAttendance(session._id)}
+                                    className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-colors"
+                                >
+                                    View Attendance
+                                </button>
+                                <button
+                                    onClick={() => stopAttendanceSession(session._id)}
+                                    className="w-full px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                                >
+                                    End Session
+                                </button>
+                            </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Attendance Modal */}
+            {attendanceData && selectedSession && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4">
+                    <div className="bg-gray-900 p-6 rounded-xl max-w-2xl w-full">
+                        <h3 className="text-xl font-semibold mb-4">
+                            {selectedSession.subject} Attendance
+                            <span className="text-purple-400 ml-2">({attendanceData.total} students)</span>
+                        </h3>
+                        
+                        <div className="max-h-96 overflow-y-auto mb-4">
+                            {attendanceData.attendees.map((student) => (
+                                <div key={student.studentId} className="bg-gray-800 p-4 rounded-lg mb-2">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="font-medium">{student.username}</p>
+                                            <p className="text-sm text-gray-400">{student.studentId}</p>
+                                        </div>
+                                        <span className="text-sm text-gray-300">
+                                            {new Date(student.timestamp).toLocaleString()}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                setAttendanceData(null);
+                                setSelectedSession(null);
+                            }}
+                            className="w-full px-4 py-2 bg-red-500 hover:bg-red-600 rounded-full transition-colors"
+                        >
+                            Close
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

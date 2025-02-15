@@ -502,6 +502,34 @@ app.get('/teacherActiveSessions', teacherAuth, async (req, res) => {
 });
 
 
+// server.js - Get attendance details
+app.get('/attendance/:sessionId', teacherAuth, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        
+        // Query using existing schema structure
+        const students = await User.find(
+            { 'attendance.sessionId': sessionId },
+            'studentId username attendance.$' // Projection to get only relevant data
+        );
+
+        const attendanceDetails = students.map(student => ({
+            studentId: student.studentId,
+            username: student.username,
+            timestamp: student.attendance.find(a => a.sessionId === sessionId)?.timestamp
+        }));
+
+        res.status(200).json({
+            total: attendanceDetails.length,
+            attendees: attendanceDetails
+        });
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ msg: "Internal server error" });
+    }
+});
+
+
 app.listen(PORT, () => {
     console.log(`Server running on PORT: ${PORT}`);
 });
