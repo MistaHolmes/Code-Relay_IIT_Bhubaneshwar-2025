@@ -49,7 +49,7 @@ export function ProfLanding() {
         };
 
         fetchActiveSessions();
-        const interval = setInterval(fetchActiveSessions, 10000);
+        const interval = setInterval(fetchActiveSessions, 10000);   
         return () => clearInterval(interval);
     }, [navigate, token]);
 
@@ -105,14 +105,12 @@ export function ProfLanding() {
     const viewAttendance = async (sessionId: string) => {
         try {
             const response = await fetch(`http://localhost:3000/attendance/${sessionId}`, {
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
+                headers: { "Authorization": `Bearer ${token}` }
             });
-
             const data = await response.json();
             if (!response.ok) throw new Error(data.msg || "Failed to fetch attendance");
             
+            // Ensure data structure matches expectations
             setAttendanceData(data);
             setSelectedSession(activeSessions.find(s => s._id === sessionId) || null);
         } catch (error) {
@@ -120,6 +118,7 @@ export function ProfLanding() {
             alert(error instanceof Error ? error.message : "Failed to load attendance");
         }
     };
+    
 
     if (error) {
         return (
@@ -143,6 +142,7 @@ export function ProfLanding() {
 
             {/* Session Creation Section */}
             <div className="flex flex-col sm:flex-row gap-4 mb-8 justify-center items-center">
+
                 <div className="flex flex-col sm:flex-row gap-4 w-full max-w-2xl">
                     <select 
                         value={selectedFaculty}
@@ -173,6 +173,13 @@ export function ProfLanding() {
                 >
                     Start Session
                 </button>
+
+                <button
+    onClick={() => navigate("/CreatePoll")}
+    className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-full transition-all duration-200"
+  >
+    Create New Poll
+  </button>
             </div>
 
             {/* Active Sessions Section */}
@@ -225,26 +232,28 @@ export function ProfLanding() {
 
             {/* Attendance Modal */}
             {attendanceData && selectedSession && (
-                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4">
-                    <div className="bg-gray-900 p-6 rounded-xl max-w-2xl w-full">
-                        <h3 className="text-xl font-semibold mb-4">
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4">
+    <div className="bg-gray-900 p-6 rounded-xl max-w-2xl w-full">
+        <h3 className="text-xl font-semibold mb-4">
                             {selectedSession.subject} Attendance
                             <span className="text-purple-400 ml-2">({attendanceData.total} students)</span>
                         </h3>
                         
                         <div className="max-h-96 overflow-y-auto mb-4">
                             {attendanceData.attendees.map((student) => (
-                                <div key={student.studentId} className="bg-gray-800 p-4 rounded-lg mb-2">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <p className="font-medium">{student.username}</p>
-                                            <p className="text-sm text-gray-400">{student.studentId}</p>
-                                        </div>
-                                        <span className="text-sm text-gray-300">
-                                            {new Date(student.timestamp).toLocaleString()}
-                                        </span>
-                                    </div>
-                                </div>
+
+<div key={student.studentId} className="bg-gray-800 p-4 rounded-lg mb-2">
+<div className="flex justify-between items-center">
+    <div>
+        <p className="font-medium">{student.username}</p>
+        <p className="text-sm text-gray-400">{student.studentId}</p>
+    </div>
+    <span className="text-sm text-gray-300">
+        {new Date(student.timestamp).toLocaleString()}
+    </span>
+</div>
+</div>
+
                             ))}
                         </div>
 

@@ -1,6 +1,7 @@
 // attendance.tsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import FaceVerification from "./Faceverification"
 
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371e3; // Earth radius in meters
@@ -23,6 +24,8 @@ export function Attendance() {
     const [error, setError] = useState<string | null>(null);
     const [checkingLocation, setCheckingLocation] = useState(false); // New state
     const [locationError, setLocationError] = useState<string | null>(null); // New state
+    const [showFaceVerification, setShowFaceVerification] = useState(false);
+    const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
     const token = localStorage.getItem("token");
     const studentId = localStorage.getItem("studentId");
 
@@ -147,6 +150,21 @@ export function Attendance() {
         );
     }
 
+
+    // Modify button click handler
+const handleMarkAttendanceClick = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    setShowFaceVerification(true);
+  };
+  
+  const handleFaceVerificationSuccess = async () => {
+    setShowFaceVerification(false);
+    if (selectedSessionId) {
+        await handleMarkAttendance(selectedSessionId);
+        setSelectedSessionId(null); // Reset session ID
+    }
+};
+
     return (
         <div className="p-6 max-w-5xl mx-auto text-white bg-black min-h-screen min-w-screen">
             <h1 className="m-4 text-4xl font-normal text-center mb-8 bg-gradient-to-r from-cyan-500 to-purple-500 bg-clip-text text-transparent">
@@ -181,9 +199,18 @@ export function Attendance() {
                 <p className="text-center text-red-500 mb-4">{locationError}</p>
             )}
 
+{showFaceVerification && (
+  <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <FaceVerification 
+      onSuccess={handleFaceVerificationSuccess}
+      onClose={() => setShowFaceVerification(false)}
+    />
+  </div>
+)}
+
 
                             <button
-                                onClick={() => handleMarkAttendance(session._id)}
+                               onClick={() => handleMarkAttendanceClick(session._id)}
                                 className="w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white rounded-full transition-all duration-200"
                             >
                                 Mark Attendance

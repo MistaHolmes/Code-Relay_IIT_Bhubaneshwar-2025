@@ -7,6 +7,8 @@ import { CreateComplaint } from "./pages/components_student/createComplaint";
 import { Attendance } from "./pages/components_student/attendance";
 import ProfLogin from "./pages/logins/profLogin";
 import { ProfLanding } from "./pages/landing/profLanding";
+import { CreatePoll } from "./pages/landing/createPoll";
+import PollList from "./pages/components_student/PollList";
 
 function Routing() {
 
@@ -19,6 +21,11 @@ function Routing() {
             <Route path="/createComplaint" element={<CreateComplaint />} />
             <Route path="/studentAtendance" element={<Attendance />} />
             <Route path="/profLanding" element={<ProfLanding />} />
+
+            <Route path="/CreatePoll" element={<CreatePoll />} />
+            <Route path="/PollList" element={<PollList />} />
+
+
         </Routes>
     );
 }

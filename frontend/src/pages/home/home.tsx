@@ -1,19 +1,20 @@
+
 import React, { useState } from "react";
-import Attendoo from "../../assist/reshot-icon-lastfm-NVQ647DYCA.svg"; 
+import Attendoo from "../../assist/reshot-icon-lastfm-NVQ647DYCA.svg";
 import { Link } from "react-router-dom";
 
 const Home = () => {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div>
-      <header className="py-4 bg-black sm:py-6">
+    <div className="bg-gradient-to-br from-gray-900 to-black min-h-screen">
+      <header className="py-6 bg-gradient-to-r from-gray-900 to-bl  ack sm:py-6">
         <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="shrink-0">
-              <a href="#" title="" className="flex">
+              <a href="#" className="flex group">
                 <img
-                  className="w-auto h-9"
+                  className="w-auto h-9 transition-transform group-hover:scale-110"
                   src={Attendoo}
                   alt="Logo"
                 />
@@ -23,7 +24,7 @@ const Home = () => {
             <div className="flex md:hidden">
               <button
                 type="button"
-                className="text-white"
+                className="text-white hover:text-cyan-400 transition-colors"
                 onClick={() => setExpanded(!expanded)}
                 aria-expanded={expanded}
               >
@@ -66,7 +67,7 @@ const Home = () => {
                 <a
                   key={item}
                   href="#"
-                  className="text-base font-normal text-gray-400 transition-all duration-200 hover:text-white"
+                  className="text-base font-medium text-gray-400 transition-all duration-200 hover:text-cyan-400"
                 >
                   {item}
                 </a>
@@ -81,7 +82,7 @@ const Home = () => {
                   <a
                     key={item}
                     href="#"
-                    className="text-base font-normal text-gray-400 transition-all duration-200 hover:text-white"
+                    className="text-base font-medium text-gray-400 transition-all duration-200 hover:text-cyan-400"
                   >
                     {item}
                   </a>
@@ -92,71 +93,79 @@ const Home = () => {
         </div>
       </header>
 
-      <section className="py-12 bg-black sm:pb-16 lg:pb-20 xl:pb-24">
+      <section className="py-12 sm:pb-16 lg:pb-20 xl:pb-24">
         <div className="px-4 mx-auto sm:px-6 lg:px-8 max-w-7xl">
           <div className="relative">
             <div className="lg:w-2/3">
-              <p className="text-sm font-normal tracking-widest text-gray-300 uppercase">
+              <p className="text-sm font-medium tracking-widest text-cyan-400 uppercase">
                 Your Classroom, Upgraded
               </p>
-              <h1 className="mt-6 text-4xl font-normal text-white sm:mt-10 sm:text-5xl lg:text-6xl xl:text-8xl">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-purple-500">
+              <h1 className="mt-6 text-4xl font-bold text-white sm:mt-10 sm:text-5xl lg:text-6xl xl:text-8xl">
+                <span className="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
                   Welcome to Attendoo!
-                </span>{" "}
+                </span>
               </h1>
-              <p className="max-w-lg mt-4 text-xl font-normal text-gray-400 sm:mt-8">
+              <p className="max-w-lg mt-4 text-xl font-medium text-gray-400 sm:mt-8">
                 Smart Attendance. Live Interaction. Seamless Learning
               </p>
 
-              <div className="relative inline-flex items-center justify-center mt-8 sm:mt-12 group m-2">
-                <div className="absolute transition-all duration-200 rounded-full -inset-px bg-gradient-to-r from-cyan-500 to-purple-500 group-hover:shadow-lg group-hover:shadow-cyan-500/50"></div>
-                <Link
-                  to="/studentlogin"
-                  className="relative inline-flex items-center justify-center px-8 py-3 text-base font-normal text-white bg-black border border-transparent rounded-full"
-                >
-                  Student Login
-                </Link>
-              </div>
+              <div className="flex flex-wrap gap-6 mt-8 sm:mt-12">
+                <div className="group relative">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full blur opacity-75 group-hover:opacity-100 transition-all duration-400"></div>
+                  <Link
+                    to="/studentlogin"
+                    className="relative flex items-center px-8 py-4 bg-gray-900 rounded-full leading-none transition-all duration-200 group-hover:bg-gray-800"
+                  >
+                    <span className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                      Student Login
+                    </span>
+                  </Link>
+                </div>
 
-              <div className="relative inline-flex items-center justify-center mt-8 sm:mt-12 group m-5">
-                <div className="absolute transition-all duration-200 rounded-full -inset-px bg-gradient-to-r from-cyan-500 to-purple-500 group-hover:shadow-lg group-hover:shadow-cyan-500/50"></div>
-                <Link
-                  to="/teacherLogin"
-                  className="relative inline-flex items-center justify-center px-8 py-3 text-base font-normal text-white bg-black border border-transparent rounded-full"
-                >
-                  Professor Login
-                </Link>
+                <div className="group relative">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full blur opacity-75 group-hover:opacity-100 transition-all duration-400"></div>
+                  <Link
+                    to="/teacherLogin"
+                    className="relative flex items-center px-8 py-4 bg-gray-900 rounded-full leading-none transition-all duration-200 group-hover:bg-gray-800"
+                  >
+                    <span className="text-lg font-semibold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                      Professor Login
+                    </span>
+                  </Link>
+                </div>
               </div>
 
               <div className="inline-flex items-center pt-6 mt-8 border-t border-gray-800 sm:pt-10 sm:mt-14">
-                <svg
-                  className="w-6 h-6"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  strokeWidth="1.5"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M13 7.00003H21M21 7.00003V15M21 7.00003L13 15L9 11L3 17"
-                    stroke="url(#a)"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <defs>
-                    <linearGradient
-                      id="a"
-                      x1="3"
-                      y1="7.00003"
-                      x2="22.2956"
-                      y2="12.0274"
-                      gradientUnits="userSpaceOnUse"
-                    >
-                      <stop offset="0%" stopColor="var(--color-cyan-500)" />
-                      <stop offset="100%" stopColor="var(--color-purple-500)" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <span className="ml-2 text-base font-normal text-white">
+                <div className="animate-pulse">
+                  <svg
+                    className="w-6 h-6"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    strokeWidth="1.5"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M13 7.00003H21M21 7.00003V15M21 7.00003L13 15L9 11L3 17"
+                      stroke="url(#a)"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <defs>
+                      <linearGradient
+                        id="a"
+                        x1="3"
+                        y1="7.00003"
+                        x2="22.2956"
+                        y2="12.0274"
+                        gradientUnits="userSpaceOnUse"
+                      >
+                        <stop offset="0%" stopColor="var(--color-cyan-500)" />
+                        <stop offset="100%" stopColor="var(--color-purple-500)" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+                <span className="ml-2 text-base font-medium text-cyan-200">
                   Join 10K+ students & professors on Attendoo!
                 </span>
               </div>
@@ -164,7 +173,7 @@ const Home = () => {
 
             <div className="mt-8 md:absolute md:mt-0 md:top-32 lg:top-0 md:right-0">
               <img
-                className="w-full max-w-xs mx-auto lg:max-w-lg xl:max-w-xl"
+                className="w-full max-w-xs mx-auto transition-transform duration-300 hover:scale-105 lg:max-w-lg xl:max-w-xl"
                 src="https://landingfoliocom.imgix.net/store/collection/dusk/images/hero/1/3d-illustration.png"
                 alt="3D Illustration"
               />
@@ -177,5 +186,4 @@ const Home = () => {
 };
 
 export default Home;
-
 

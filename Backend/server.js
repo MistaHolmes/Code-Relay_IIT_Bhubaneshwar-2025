@@ -12,10 +12,12 @@ const Complaint = require('./db/complaintSchema');
 const Teacher = require('./db/teacherSchema')
 const AttendanceSession =require('./db/attendanceSessionSchema')
 const sendEmail = require("./emailServices");
+const responses = require("./db/FAQSchema")
 const QRCode = require('qrcode');
 const cors = require('cors');
 const crypto = require('crypto');
 const mongoose = require('mongoose'); 
+const stringSimilarity = require('string-similarity');
 
 const coords = { latitude: 20.1493, longitude: 85.6704 };
 
@@ -207,63 +209,71 @@ app.post('/signin/teacher', async (req, res) => {
 /* Authentication */
 
 /* POLLS */
-// Generate Poll
-app.post('/create-poll', teacherAuth ,async (req, res) => {
+
+/* POLLS */
+// Create Poll (Professor)
+app.post('/create-poll', teacherAuth, async (req, res) => {
     try {
-        const { title, description, options, expiresAt } = req.body;
+        const { title, description, options } = req.body;
+        
         if (!title || !options || options.length < 2) {
-            return res.status(400).json({ msg: 'Poll must have a title and at least two options.' });
+            return res.status(400).json({ msg: "Title and at least 2 options required" });
         }
+
         const newPoll = new Poll({
             title,
-            description,
-            options: options.map(option => ({ text: option })),
-            expiresAt
+            description: description || "",
+            options: options.map(text => ({ text, votes: 0 })),
+            votedBy: []
         });
+
         await newPoll.save();
-        res.status(201).json({ msg: 'Poll created successfully!', pollId: newPoll._id });
+        res.status(201).json({ msg: "Poll created successfully", poll: newPoll });
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ msg: 'Internal server error' });
+        console.error("Poll creation error:", error);
+        res.status(500).json({ msg: "Failed to create poll", error: error.message });
     }
 });
 
-// Vote in Poll
+// Get All Polls
+app.get('/polls', async (req, res) => {
+    try {
+        const polls = await Poll.find().sort({ createdAt: -1 });
+        res.json(polls);
+    } catch (error) {
+        console.error("Error fetching polls:", error);
+        res.status(500).json({ msg: "Failed to fetch polls", error: error.message });
+    }
+});
+
+// Submit Vote
 app.post('/vote/:pollId', authentication, async (req, res) => {
     try {
         const { pollId } = req.params;
         const { optionIndex } = req.body;
-        const poll = await Poll.findById(pollId);
-        if (!poll) {
-            return res.status(404).json({ msg: 'Poll not found' });
-        }
-        if (optionIndex < 0 || optionIndex >= poll.options.length) {
-            return res.status(400).json({ msg: 'Invalid option index' });
-        }
-        poll.options[optionIndex].votes += 1;
-        await poll.save();
-        res.status(200).json({ msg: 'Vote recorded successfully!', poll });
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ msg: 'Internal server error' });
-    }
-});
+        const studentId = req.user.studentId;
 
-// Get Poll Results
-app.get('/poll/result/:pollId', teacherAuth, async (req, res) => {
-    try {
-        const { pollId } = req.params;
         const poll = await Poll.findById(pollId);
-        if (!poll) {
-            return res.status(404).json({ msg: 'Poll not found' });
+        if (!poll) return res.status(404).json({ msg: "Poll not found" });
+
+        if (poll.votedBy.includes(studentId)) {
+            return res.status(400).json({ msg: "Already voted on this poll" });
         }
-        res.status(200).json({ poll });
+
+        if (optionIndex < 0 || optionIndex >= poll.options.length) {
+            return res.status(400).json({ msg: "Invalid option index" });
+        }
+
+        poll.options[optionIndex].votes++;
+        poll.votedBy.push(studentId);
+        await poll.save();
+
+        res.json({ msg: "Vote recorded", poll });
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ msg: 'Internal server error' });
+        console.error("Voting error:", error);
+        res.status(500).json({ msg: "Failed to process vote", error: error.message });
     }
 });
-/* POLLS */
 
 
 // Fetch Student Attendance
@@ -279,8 +289,6 @@ app.get('/attendance', authentication, async (req, res) => {
         res.status(500).json({ msg: "Internal server error" });
     }
 });
-
-
 
 /* Community Page */
 // Post Complaint
@@ -394,49 +402,83 @@ app.post("/sendNotificationEmail", teacherAuth, async (req, res) => {
 // Active attendance sessions
 app.get('/activeSessions', authentication, async (req, res) => {
     try {
-        const sessions = await AttendanceSession.find({ active: true })
-            .lean()
-            .exec();
-            
-        if (!sessions.length) {
-            return res.status(200).json([]); // Return empty array instead of error
-        }
-        
+        const studentId = req.user.studentId;
+
+        // Fetch active sessions not attended by the student
+        const sessions = await AttendanceSession.aggregate([
+            { $match: { active: true } },
+            {
+                $lookup: {
+                    from: 'users',
+                    let: { sessionId: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$studentId', studentId] },
+                                        { $in: ['$$sessionId', '$attendance.sessionId'] }
+                                    ]
+                                }
+                            }
+                        },
+                        { $limit: 1 }
+                    ],
+                    as: 'attended'
+                }
+            },
+            { $match: { attended: { $size: 0 } } } // Exclude sessions the student attended
+     ] );
+
         res.status(200).json(sessions);
     } catch (error) {
         console.error("Error:", error);
-        res.status(500).json({
-            msg: "Server error loading sessions",
-            error: error.message
-        });
+        res.status(500).json({ msg: "Server error loading sessions", error: error.message });
     }
 });
 
 // Update the markAttendance route
+// server.js - Update the markAttendance route
 app.post('/markAttendance', authentication, async (req, res) => {
     try {
         const { sessionId } = req.body;
         const studentId = req.user.studentId;
 
-        // Validate session exists and convert sessionId to ObjectId
         const session = await AttendanceSession.findById(sessionId);
         if (!session || !session.active) {
             return res.status(400).json({ msg: "Invalid attendance session" });
         }
 
-        // Store sessionId as ObjectId
+        // Check if student already marked attendance
+        if (session.students.includes(studentId)) {
+            return res.status(400).json({ msg: "Attendance already marked" });
+        }
+
+        // Add student ID to the session's students array
+        session.students.push(studentId);
+        await session.save();
+
+        // Update user's attendance record
         await User.findOneAndUpdate(
             { studentId },
-            { $addToSet: { attendance: { 
-                sessionId: session._id, // Store as ObjectId
-                subject: session.subject,
-                timestamp: new Date()
-            }}}
+            { 
+                $push: { 
+                    attendance: { 
+                        sessionId: session._id,
+                        subject: session.subject,
+                        timestamp: new Date()
+                    } 
+                } 
+            }
         );
 
         res.status(200).json({ msg: "Attendance marked successfully" });
     } catch (error) {
-        // ... error handling ...
+        console.error("Error marking attendance:", error);
+        res.status(500).json({ 
+            msg: "Internal server error",
+            error: error.message // Include error message in response
+        });
     }
 });
 
@@ -463,32 +505,31 @@ app.post('/startAttendance', teacherAuth, async (req, res) => {
     }
 });
 
-// Stop attendance session
+// server.js - Corrected Get Attendance Details Route
+// server.js - Update the /attendance/:sessionId route
+// Update the /attendance/:sessionId route to pull timestamps from user records
 app.get('/attendance/:sessionId', teacherAuth, async (req, res) => {
     try {
         const { sessionId } = req.params;
+        const session = await AttendanceSession.findById(sessionId);
         
-        // Validate session ID format
-        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-            return res.status(400).json({ msg: "Invalid session ID format" });
+        if (!session) {
+            return res.status(404).json({ msg: "Session not found" });
         }
 
-        const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
-
-        const students = await User.find(
-            { 'attendance.sessionId': sessionObjectId },
-            'studentId username attendance.$'
-        ).lean();
-
-        const attendanceDetails = students.map(student => ({
-            studentId: student.studentId,
-            username: student.username,
-            timestamp: student.attendance[0]?.timestamp // Using [0] since we used $ projection
-        }));
+        // Get student details using the student IDs stored in the session
+        const attendees = await User.find(
+            { studentId: { $in: session.students } },
+            'studentId username'
+        );
 
         res.status(200).json({
-            total: attendanceDetails.length,
-            attendees: attendanceDetails
+            total: session.students.length,
+            attendees: attendees.map(student => ({
+                studentId: student.studentId,
+                username: student.username,
+                timestamp: new Date() // You might want to store this differently
+            }))
         });
     } catch (error) {
         console.error("Error:", error);
@@ -524,33 +565,7 @@ app.get('/teacherActiveSessions', teacherAuth, async (req, res) => {
 });
 
 
-// server.js - Get attendance details
-app.get('/attendance/:sessionId', teacherAuth, async (req, res) => {
-    try {
-        const { sessionId } = req.params;
-        const sessionObjectId = new mongoose.Types.ObjectId(sessionId); 
-        
-        // Query using existing schema structure
-        const students = await User.find(
-            { 'attendance.sessionId': sessionObjectId }, // Query using ObjectId
-            'studentId username attendance.$'
-        );
 
-        const attendanceDetails = students.map(student => ({
-            studentId: student.studentId,
-            username: student.username,
-            timestamp: student.attendance.find(a => a.sessionId === sessionId)?.timestamp
-        }));
-
-        res.status(200).json({
-            total: attendanceDetails.length,
-            attendees: attendanceDetails
-        });
-    } catch (error) {
-        console.error("Error:", error);
-        res.status(500).json({ msg: "Internal server error" });
-    }
-});
 
 // Stop attendance session
 app.post('/stopAttendance/:sessionId', teacherAuth, async (req, res) => {
@@ -575,6 +590,52 @@ app.post('/stopAttendance/:sessionId', teacherAuth, async (req, res) => {
             error: error.message 
         });
     }
+});
+
+
+//faceapi 
+const HARDCODED_EMBEDDING = [0.1, 0.2, 0.3, 0.4]; // Must match frontend array
+
+app.post('/verifyFace', (req, res) => {
+    try {
+        const receivedArray = req.body.embedding;
+        
+        // Simple array comparison (not production-safe!)
+        const verified = JSON.stringify(receivedArray) === JSON.stringify(HARDCODED_EMBEDDING);
+        
+        res.json({
+            verified,
+            message: verified ? "Face verified!" : "Verification failed"
+        });
+    } catch (error) {
+        console.error("Verification error:", error);
+        res.status(500).json({ verified: false, message: "Server error" });
+    }
+});
+
+
+// Enhanced /api/ask endpoint
+app.post('/api/ask', (req, res) => {
+    const { question } = req.body;
+    const cleanQuestion = question.toLowerCase().trim();
+    
+    // Handle empty questions
+    if (!cleanQuestion) {
+        return res.json({ answer: "Please ask a question related to campus activities, academics, or student services." });
+    }
+
+    // Get all FAQ questions
+    const faqQuestions = Object.keys(responses).filter(k => k !== "default");
+    const matches = stringSimilarity.findBestMatch(cleanQuestion, faqQuestions);
+    
+    const bestMatch = matches.bestMatch;
+    const THRESHOLD = 0.6; // Lower threshold for broader matching
+    
+    const answer = bestMatch.rating >= THRESHOLD
+        ? responses[bestMatch.target]
+        : responses["default"];
+
+    res.json({ answer });
 });
 
 

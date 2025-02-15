@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
     studentId: { 
         type: String, 
-        required: true, // <-- Critical validation
+        required: true, // <-- Critical validation  
         unique: true 
     },
     username: { type: String, required: true, unique: true },
